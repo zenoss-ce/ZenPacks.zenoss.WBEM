@@ -31,7 +31,9 @@ from twisted.internet.defer import DeferredList, CancelledError
 
 from Products.DataCollector.plugins.CollectorPlugin import PythonPlugin
 
-from ZenPacks.zenoss.WBEM.utils import addLocalLibPath, result_errmsg
+from ZenPacks.zenoss.WBEM.utils import (
+    addLocalLibPath, result_errmsg, create_connection
+)
 
 from ZenPacks.zenoss.WBEM.patches import (
     EnumerateClassNames,
@@ -39,6 +41,8 @@ from ZenPacks.zenoss.WBEM.patches import (
     EnumerateInstanceNames,
     EnumerateInstances
 )
+
+from pywbem.twisted_client import ExecQuery
 
 addLocalLibPath()
 
@@ -53,6 +57,7 @@ class WBEMPlugin(PythonPlugin):
     )
 
     wbemQueries = {}
+    wbemExactQueries = {}
 
     def collect(self, device, log):
         if not device.manageIp:
@@ -105,18 +110,16 @@ class WBEMPlugin(PythonPlugin):
                                              namespace=namespace)
 
             deferreds.append(wbemClass.deferred)
+            create_connection(device, wbemClass)
 
-            if device.zWBEMUseSSL == True:
-                reactor.connectSSL(
-                    host=device.manageIp,
-                    port=int(device.zWBEMPort),
-                    factory=wbemClass,
-                    contextFactory=ssl.ClientContextFactory())
-            else:
-                reactor.connectTCP(
-                    host=device.manageIp,
-                    port=int(device.zWBEMPort),
-                    factory=wbemClass)
+        for namespaceQuery, queryLanguage in self.wbemExactQueries.items():
+            namespace_query = namespaceQuery.split(":")
+            wbemClass = ExecQuery(
+                userCreds, queryLanguage, namespace_query[1], namespace=namespace_query[0]
+            )
+
+            deferreds.append(wbemClass.deferred)
+            create_connection(device, wbemClass)
 
         # Execute the deferreds and return the results to the callback.
         d = DeferredList(deferreds, consumeErrors=True)

@@ -10,8 +10,6 @@
 import logging
 log = logging.getLogger('zen.WBEM')
 
-import calendar
-
 from twisted.internet import ssl, reactor, defer
 from twisted.internet.error import TimeoutError
 from twisted.python import failure
@@ -30,10 +28,13 @@ from Products.Zuul.utils import ZuulMessageFactory as _t
 from ZenPacks.zenoss.PythonCollector.datasources.PythonDataSource \
     import PythonDataSource, PythonDataSourcePlugin
 
-from ZenPacks.zenoss.WBEM.utils import addLocalLibPath, result_errmsg
+from ZenPacks.zenoss.WBEM.utils import (
+    addLocalLibPath, result_errmsg, create_connection, convert_to_timestamp
+)
 
 addLocalLibPath()
 
+from pywbem import CIMDateTime
 from pywbem.twisted_client import ExecQuery
 
 
@@ -174,17 +175,7 @@ class WBEMDataSourcePlugin(PythonDataSourcePlugin):
             ds0.params['query'],
             namespace=ds0.params['namespace'])
 
-        if ds0.zWBEMUseSSL:
-            reactor.connectSSL(
-                host=ds0.manageIp,
-                port=int(ds0.zWBEMPort),
-                factory=factory,
-                contextFactory=ssl.ClientContextFactory())
-        else:
-            reactor.connectTCP(
-                host=ds0.manageIp,
-                port=int(ds0.zWBEMPort),
-                factory=factory)
+        create_connection(ds0, factory)
 
         return add_timeout(factory, int(ds0.zWBEMRequestTimeout))
 
@@ -241,15 +232,18 @@ class WBEMDataSourcePlugin(PythonDataSourcePlugin):
 
             if result_timestamp_key and result_timestamp_key in result:
                 cim_date = result[result_timestamp_key]
-                timestamp = calendar.timegm(cim_date.datetime.utctimetuple())
+                timestamp = convert_to_timestamp(cim_date)
 
             if not timestamp:
                 timestamp = 'N'
 
             for datapoint in datasource.points:
                 if datapoint.id in result:
+                    value = result[datapoint.id]
+                    if isinstance(value, CIMDateTime):
+                        value = convert_to_timestamp(value)
                     data['values'][component_id][datapoint.id] = \
-                        (result[datapoint.id], timestamp)
+                        (value, timestamp)
 
         data['events'].append({
             'eventClassKey': 'wbemCollectionSuccess',
