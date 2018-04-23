@@ -110,14 +110,14 @@ class WBEMPlugin(PythonPlugin):
             userCreds = (device.zWBEMUsername, device.zWBEMPassword)
 
             if wbemclass == 'ec':
-                # TODO migrate to twisted.Agent
                 wbemClass = EnumerateClasses(
-                    userCreds, namespace=namespace)
+                    userCreds, host=device.manageIp, port=device.zWBEMPort,
+                    ssl=device.zWBEMUseSSL, namespace=namespace)
 
             elif wbemclass == 'ecn':
-                # TODO migrate to twisted.Agent
                 wbemClass = EnumerateClassNames(
-                    userCreds, namespace=namespace)
+                    userCreds, host=device.manageIp, port=device.zWBEMPort,
+                    ssl=device.zWBEMUseSSL, namespace=namespace)
 
             elif wbemclass == 'ei':
                 wbemClass = get_enumerate_instances(
@@ -126,17 +126,18 @@ class WBEMPlugin(PythonPlugin):
                     ssl=device.zWBEMUseSSL,
                     classname=classname,
                     MaxObjectCount=device.zWBEMMaxObjectCount,
-                    OperationTimeout=device.zWBEMOperationTimeout
-                )
+                    OperationTimeout=device.zWBEMOperationTimeout)
 
             elif wbemclass == 'ein':
-                # TODO migrate to twisted.Agent
                 wbemClass = EnumerateInstanceNames(
-                    userCreds, namespace=namespace, classname=classname)
+                    userCreds, namespace=namespace, host=device.manageIp, port=device.zWBEMPort,
+                    ssl=device.zWBEMUseSSL, classname=classname)
 
             else:
                 log.warn('Incorrect class call %s', wbemclass)
                 wbemClass = EnumerateClasses(userCreds,
+                                             host=device.manageIp, port=device.zWBEMPort,
+                                             ssl=device.zWBEMUseSSL,
                                              namespace=namespace)
 
             wbemClass.deferred.addCallback(check_if_complete,

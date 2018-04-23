@@ -201,6 +201,13 @@ class BaseWBEMMethod(object):
         protocol = "https" if ssl else "http"
         return "%s://%s:%s" % (protocol, host, port)
 
+    def cbResponse(self, res):
+        d = readBody(res)
+        return d
+
+    def error(self, err):
+        return err
+
 # TODO: Eww - we should get rid of the tupletree, tupleparse modules
 # and replace with elementtree based code.
 
@@ -235,13 +242,6 @@ class ExecQuery(BaseWBEMMethod):
         self.deferred.addCallback(self.parseErrorAndResponse)
         self.deferred.addCallback(self.parseResponse)
         self.deferred.addErrback(self.error)
-
-    def cbResponse(self, res):
-        d = readBody(res)
-        return d
-
-    def error(self, err):
-        return err
 
     def __repr__(self):
         return '<%s(/%s:%s) at 0x%x>' % \
@@ -296,13 +296,6 @@ class OpenEnumerateInstances(BaseWBEMMethod):
         self.deferred.addCallback(self.parseErrorAndResponse)
         self.deferred.addCallback(self.parseResponse)
         self.deferred.addErrback(self.error)
-
-    def cbResponse(self, res):
-        d = readBody(res)
-        return d
-
-    def error(self, err):
-        return err
 
     def __repr__(self):
         return '<%s(/%s:%s) at 0x%x>' % \
@@ -469,16 +462,6 @@ class EnumerateInstances(BaseWBEMMethod):
         self.deferred.addCallback(self.parseResponse)
         self.deferred.addErrback(self.error)
 
-    def cbResponse(self, res):
-        d = readBody(res)
-        return d
-
-    def read_body(self, result):
-        return result
-
-    def error(self, err):
-        return err
-
     def __repr__(self):
         return '<%s(/%s:%s) at 0x%x>' % \
                (self.__class__, self.namespace, self.classname, id(self))
@@ -496,24 +479,34 @@ class EnumerateInstances(BaseWBEMMethod):
 class EnumerateInstanceNames(BaseWBEMMethod):
     """Factory to produce EnumerateInstanceNames WBEM clients."""
 
-    def __init__(self, creds, classname, namespace = 'root/cimv2', **kwargs):
+    def __init__(self, creds, classname, host, port, ssl, namespace = 'root/cimv2', **kwargs):
 
         self.classname = classname
         self.namespace = namespace
+        self.cim_method = "EnumerateInstanceNames"
 
         payload = self.imethodcallPayload(
-            'EnumerateInstanceNames',
+            self.cim_method,
             namespace,
-            ClassName = CIMClassName(classname),
+            ClassName=CIMClassName(classname),
             **kwargs)
+        headers = self.get_headers(creds, self.cim_method, self.namespace)
+        body = FileBodyProducer(StringIO(str(payload)))
+        # check if ssl
+        # create context fsctory for Agent
+        url = self.build_url(ssl, host, port)
+        if ssl:
+            # TODO  build SSL factory
+            contextFactory = WBEMClientContextFactory()
+            agent = Agent(reactor, contextFactory)
 
-        BaseWBEMMethod.__init__(
-            self,
-            creds,
-            operation = 'MethodCall',
-            method = 'EnumerateInstanceNames',
-            object = namespace,
-            payload = payload)
+        else:
+            agent = Agent(reactor)
+        self.deferred = agent.request('POST', url, headers, body)
+        self.deferred.addCallback(self.cbResponse)
+        self.deferred.addCallback(self.parseErrorAndResponse)
+        self.deferred.addCallback(self.parseResponse)
+        self.deferred.addErrback(self.error)
 
     def __repr__(self):
         return '<%s(/%s:%s) at 0x%x>' % \
@@ -644,22 +637,30 @@ class ModifyInstance(BaseWBEMMethod):
 class EnumerateClassNames(BaseWBEMMethod):
     """Factory to produce EnumerateClassNames WBEM clients."""
 
-    def __init__(self, creds, namespace = 'root/cimv2', **kwargs):
+    def __init__(self, creds, host, port, ssl, namespace = 'root/cimv2', **kwargs):
 
-        self.localnsp = namespace
+        self.namespace = namespace
+        self.cim_method = "EnumerateClassNames"
 
         payload = self.imethodcallPayload(
-            'EnumerateClassNames',
-            namespace,
+            self.cim_method,
+            self.namespace,
             **kwargs)
+        headers = self.get_headers(creds, self.cim_method, self.namespace)
+        body = FileBodyProducer(StringIO(str(payload)))
 
-        BaseWBEMMethod.__init__(
-            self,
-            creds,
-            operation = 'MethodCall',
-            method = 'EnumerateClassNames',
-            object = namespace,
-            payload = payload)
+        url = self.build_url(ssl, host, port)
+        if ssl:
+            contextFactory = WBEMClientContextFactory()
+            agent = Agent(reactor, contextFactory)
+
+        else:
+            agent = Agent(reactor)
+        self.deferred = agent.request('POST', url, headers, body)
+        self.deferred.addCallback(self.cbResponse)
+        self.deferred.addCallback(self.parseErrorAndResponse)
+        self.deferred.addCallback(self.parseResponse)
+        self.deferred.addErrback(self.error)
 
     def __repr__(self):
         return '<%s(/%s) at 0x%x>' % \
@@ -675,23 +676,30 @@ class EnumerateClassNames(BaseWBEMMethod):
 class EnumerateClasses(BaseWBEMMethod):
     """Factory to produce EnumerateClasses WBEM clients."""
 
-    def __init__(self, creds, namespace = 'root/cimv2', **kwargs):
+    def __init__(self, creds, host, port, ssl, namespace = 'root/cimv2', **kwargs):
 
-        self.localnsp = namespace
         self.namespace = namespace
+        self.cim_method = "EnumerateClasses"
 
         payload = self.imethodcallPayload(
-            'EnumerateClasses',
-            namespace,
+            self.cim_method,
+            self.namespace,
             **kwargs)
+        headers = self.get_headers(creds, self.cim_method, self.namespace)
+        body = FileBodyProducer(StringIO(str(payload)))
 
-        BaseWBEMMethod.__init__(
-            self,
-            creds,
-            operation = 'MethodCall',
-            method = 'EnumerateClasses',
-            object = namespace,
-            payload = payload)
+        url = self.build_url(ssl, host, port)
+        if ssl:
+            contextFactory = WBEMClientContextFactory()
+            agent = Agent(reactor, contextFactory)
+
+        else:
+            agent = Agent(reactor)
+        self.deferred = agent.request('POST', url, headers, body)
+        self.deferred.addCallback(self.cbResponse)
+        self.deferred.addCallback(self.parseErrorAndResponse)
+        self.deferred.addCallback(self.parseResponse)
+        self.deferred.addErrback(self.error)
 
     def __repr__(self):
         return '<%s(/%s) at 0x%x>' % \
