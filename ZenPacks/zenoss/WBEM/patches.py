@@ -11,7 +11,7 @@ from ZenPacks.zenoss.WBEM.utils import addLocalLibPath
 addLocalLibPath()
 
 from pywbem import CIMError
-from pywbem import twisted_client
+from pywbem import twisted_agent
 try:
     from elementtree.ElementTree import fromstring
 except ImportError, arg:
@@ -19,7 +19,7 @@ except ImportError, arg:
 
 
 class HandleResponseMixin():
-    """Override base parseErrorAndResponse from pywbem.twisted_client module
+    """Override base parseErrorAndResponse from pywbem.twisted_agent module
     to catch XML parsing error"""
 
     def parseErrorAndResponse(self, data):
@@ -28,12 +28,11 @@ class HandleResponseMixin():
         try:
             xml = fromstring(data)
         except Exception:
-            self.deferred.errback(
+            raise (
                 CIMError(
                     0, 'Incorrect XML response for {0}'.format(self.classname)
                 )
             )
-            return
 
         error = xml.find('.//ERROR')
 
@@ -46,52 +45,36 @@ class HandleResponseMixin():
                           "zWBEMMaxObjectCount properties".format(self.classname)
                 )
         else:
-            self.deferred.callback(self.parseResponse(xml))
-            return
+            return xml
 
         try:
             code = int(error.attrib['CODE'])
         except ValueError:
             code = 0
 
-        self.deferred.errback(CIMError(code, error.attrib['DESCRIPTION']))
+        raise (CIMError(code, error.attrib['DESCRIPTION']))
 
 
-class EnumerateInstances(HandleResponseMixin, twisted_client.EnumerateInstances):
+class EnumerateInstances(HandleResponseMixin, twisted_agent.EnumerateInstances):
     pass
 
 
-class EnumerateInstanceNames(HandleResponseMixin, twisted_client.EnumerateInstanceNames):
+class EnumerateInstanceNames(HandleResponseMixin, twisted_agent.EnumerateInstanceNames):
     pass
 
 
-class EnumerateClasses(HandleResponseMixin, twisted_client.EnumerateClasses):
+class EnumerateClasses(HandleResponseMixin, twisted_agent.EnumerateClasses):
     pass
 
 
-class EnumerateClassNames(HandleResponseMixin, twisted_client.EnumerateClassNames):
+class EnumerateClassNames(HandleResponseMixin, twisted_agent.EnumerateClassNames):
     pass
 
 
-class PullInstances(HandleResponseMixin, twisted_client.PullInstances):
+class PullInstances(HandleResponseMixin, twisted_agent.PullInstances):
     pass
 
 
-class OpenEnumerateInstances(HandleResponseMixin, twisted_client.OpenEnumerateInstances):
+class OpenEnumerateInstances(HandleResponseMixin, twisted_agent.OpenEnumerateInstances):
     pass
 
-
-class NewWBEMClient(object, twisted_client.WBEMClient):
-
-    def rawDataReceived(self, data):
-        """
-        Override this method to cancel deferred timeout
-        in case we got some response from resource side.
-        """
-        if hasattr(self.factory, 'deferred_timeout'):
-            if self.factory.deferred_timeout.active():
-                self.factory.deferred_timeout.cancel()
-        super(NewWBEMClient, self).rawDataReceived(data)
-
-
-twisted_client.WBEMClient = NewWBEMClient

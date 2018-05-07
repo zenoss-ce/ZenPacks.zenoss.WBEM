@@ -39,7 +39,7 @@ from ZenPacks.zenoss.WBEM.utils import (
     result_errmsg,
 )
 
-from ZenPacks.zenoss.WBEM.patches_agent import (
+from ZenPacks.zenoss.WBEM.patches import (
     EnumerateClassNames,
     EnumerateClasses,
     EnumerateInstanceNames,
