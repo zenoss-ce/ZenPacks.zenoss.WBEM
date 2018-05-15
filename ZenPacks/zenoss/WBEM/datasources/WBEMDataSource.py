@@ -31,7 +31,6 @@ from Products.Zuul.utils import ZuulMessageFactory as _t
 from ZenPacks.zenoss.PythonCollector.datasources.PythonDataSource \
     import PythonDataSource, PythonDataSourcePlugin
 
-from ZenPacks.zenoss.WBEM.modeler.wbem_agent import check_if_complete
 from ZenPacks.zenoss.WBEM.utils import (
     addLocalLibPath,
     result_errmsg,
